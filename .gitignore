@@ -1,0 +1,5 @@
+target/
+.idea/
+*.iml
+digedit.db
+dependency-reduced-pom.xml
