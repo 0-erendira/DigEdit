@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DigEdit</title>
+<style>
+:root{--bg:#f7f7f9;--grid:#e6e6ec;--card:#fff;--tx:#1e1e24;--sub:#6b6b76;--bd:#b8b8c4;--sel:#2b6ceb;--match:#fff3b0;--panel:#efeff3;--line:#d0d0d8;--reply:#555560;--agree:#0072b2;--dis:#d55e00;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15151a;--grid:#23232b;--card:#202028;--tx:#ececf1;--sub:#9a9aa8;--bd:#4a4a58;--sel:#6ea0ff;--match:#4d4520;--panel:#1c1c23;--line:#33333d;--reply:#b0b0bc;--agree:#56b4e9;--dis:#ffa040;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#15151a;--grid:#23232b;--card:#202028;--tx:#ececf1;--sub:#9a9aa8;--bd:#4a4a58;--sel:#6ea0ff;--match:#4d4520;--panel:#1c1c23;--line:#33333d;--reply:#b0b0bc;--agree:#56b4e9;--dis:#ffa040;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
+*{box-sizing:border-box}
+body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:14px/1.4 "Segoe UI",system-ui,-apple-system,Helvetica,Arial,sans-serif;display:flex;flex-direction:column}
+button,select,input,textarea{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--bd);border-radius:6px;padding:5px 10px}
+button{cursor:pointer}button:hover:not(:disabled){border-color:var(--sel)}button:disabled{opacity:.4;cursor:default}
+:focus-visible{outline:2px solid var(--sel);outline-offset:1px}
+.bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 10px;background:var(--panel);border-bottom:1px solid var(--line)}
+.bar .sp{flex:1}.bar .g{display:flex;gap:0}.bar .g button:first-child{border-radius:6px 0 0 6px}.bar .g button:last-child{border-radius:0 6px 6px 0;border-left:0}
+main{flex:1;display:grid;grid-template-columns:1fr 320px;min-height:0}
+#cv{overflow:auto;position:relative;min-height:0}
+svg{display:block;touch-action:none}
+aside{background:var(--panel);border-left:1px solid var(--line);padding:12px;display:flex;flex-direction:column;gap:8px;overflow:auto}
+aside h2{margin:0;font-size:17px}
+#meta{color:var(--sub);min-height:1.4em}
+#body{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:8px;min-height:110px;white-space:pre-wrap}
+#conn{list-style:none;margin:0;padding:0;background:var(--card);border:1px solid var(--line);border-radius:6px;min-height:60px;max-height:160px;overflow:auto}
+#conn li{padding:5px 8px;cursor:pointer;border-bottom:1px solid var(--line)}#conn li:hover{background:var(--match)}
+.legend{border:1px solid var(--line);border-radius:6px;padding:8px}
+.legend div{display:flex;align-items:center;gap:10px;margin:3px 0}
+.legend svg{width:50px;height:8px}
+footer{display:flex;justify-content:space-between;gap:10px;padding:5px 10px;border-top:1px solid var(--line);background:var(--panel);color:var(--sub);font-size:13px}
+#menu{position:fixed;display:none;background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:4px;box-shadow:0 6px 20px #0004;z-index:20;min-width:170px}
+#menu button{display:block;width:100%;text-align:left;border:0;border-radius:4px}
+dialog{border:1px solid var(--bd);border-radius:10px;background:var(--card);color:var(--tx);padding:16px;width:min(420px,94vw)}
+dialog::backdrop{background:#0006}
+dialog label{display:block;margin:8px 0 2px;font-weight:600}
+dialog input,dialog textarea,dialog select{width:100%}
+.err{color:#c0392b;min-height:1.3em;margin-top:4px}
+.row{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+.pri{background:var(--sel);color:#fff;border-color:var(--sel)}
+@media(max-width:800px){main{grid-template-columns:1fr;grid-template-rows:1fr auto}aside{border-left:0;border-top:1px solid var(--line);max-height:38vh}}
+</style></head><body>
+<div class="bar" role="toolbar">
+ <label for="disc">Discussion</label><select id="disc"></select>
+ <button id="bND" title="Start a new discussion">New discussion</button>
+ <button id="bRD">Rename</button><button id="bDD">Delete discussion</button>
+ <span class="g"><button id="bNew">New post</button><button id="bRep">Reply</button><button id="bLink">Link…</button><button id="bEdit">Edit</button><button id="bDel">Delete</button></span>
+ <button id="bUndo">Undo</button>
+ <span class="g"><button id="bZo" aria-label="Zoom out">–</button><button id="bZi" aria-label="Zoom in">+</button></span>
+ <button id="bExp">Export</button><button id="bImp">Import</button><input type="file" id="file" accept=".json" hidden>
+ <span class="sp"></span><label for="q">Search</label><input id="q" type="search" placeholder="Title, author or text" style="width:170px">
+</div>
+<main>
+ <div id="cv"></div>
+ <aside>
+  <h2 id="dt">Nothing selected</h2><div id="meta"></div>
+  <div id="body"></div>
+  <div>Connections (click to go there):</div><ul id="conn"></ul>
+  <div id="dbtn" style="display:flex;gap:6px"></div>
+  <div class="legend"><b>Legend</b>
+   <div><svg><line x1="0" y1="4" x2="50" y2="4" stroke="var(--reply)" stroke-width="2"/></svg>Reply to</div>
+   <div><svg><line x1="0" y1="4" x2="50" y2="4" stroke="var(--agree)" stroke-width="3"/></svg>Agrees with</div>
+   <div><svg><line x1="0" y1="4" x2="50" y2="4" stroke="var(--dis)" stroke-width="2" stroke-dasharray="9 6"/></svg>Disagrees with</div>
+  </div>
+ </aside>
+</main>
+<footer><span id="st"></span><span id="stats"></span></footer>
+<div id="menu"></div>
+<dialog id="pd"><form method="dialog" id="pf">
+ <h3 id="ph" style="margin:0 0 6px"></h3><div id="pc"></div>
+ <div id="lt" hidden><label for="pt">Response type</label><select id="pt"><option value="REPLY">Reply to</option><option value="AGREE">Agrees with</option><option value="DISAGREE">Disagrees with</option></select></div>
+ <label for="pa">Author *</label><input id="pa"><label for="pti">Title *</label><input id="pti">
+ <label for="pb">Message</label><textarea id="pb" rows="6"></textarea>
+ <div class="err" id="pe"></div>
+ <div class="row"><button type="button" id="pcn">Cancel</button><button type="submit" class="pri" id="pok"></button></div>
+</form></dialog>
+<dialog id="ld"><h3 id="lh" style="margin:0 0 10px"></h3>
+ <div class="row" style="justify-content:flex-start;flex-wrap:wrap"><button data-t="REPLY">Reply to</button><button data-t="AGREE">Agrees with</button><button data-t="DISAGREE">Disagrees with</button><button data-t="">Cancel</button></div></dialog>
+<script>
+const W=210,H=66,KEY="digedit.v1",LBL={REPLY:"Reply to",AGREE:"Agrees with",DISAGREE:"Disagrees with"};
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const cut=(s,n)=>s.length>n?s.slice(0,n-1)+"…":s;
+const now=()=>{const d=new Date(),p=n=>String(n).padStart(2,"0");return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`};
+function seed(){
+ const S={n:1,discs:[],posts:[],links:[]};const id=()=>S.n++;
+ const D=t=>{const d={id:id(),title:t};S.discs.push(d);return d.id};
+ const P=(d,a,t,b,x,y)=>{const i=id();S.posts.push({id:i,d,author:a,title:t,body:b,createdAt:now(),x,y});return i};
+ const L=(d,f,t,ty)=>S.links.push({id:id(),d,from:f,to:t,type:ty});
+ let d=D("Should CSUN switch to a 4-day class week?");
+ const a=P(d,"Maria G.","Proposal: 4-day week","Move all M/W/F classes to Mon-Thu with longer sessions. Fridays become open lab and office-hour days.",380,40),
+ b=P(d,"Kevin T.","Commuters would love this","I drive 50 minutes each way. One less day on the 405 is a huge quality-of-life win.",120,190),
+ c=P(d,"Priya S.","Longer classes hurt focus","Attention drops off after about an hour. 2-hour lectures would need built-in breaks.",400,200),
+ e=P(d,"Jordan L.","What about lab sections?","Labs are already 3 hours. Where do they fit if Friday is gone?",680,190),
+ f=P(d,"Kevin T.","Breaks solve that","A 10-minute break halfway through fixes the focus problem. Plenty of grad classes do this.",260,350),
+ g=P(d,"Alex R.","Friday labs could stay","Keep labs on Friday, move only lectures. Best of both.",650,350),
+ h=P(d,"Priya S.","Breaks help, but not enough","Breaks help, but 4 long days in a row is still exhausting for students who also work.",260,500);
+ L(d,b,a,"AGREE");L(d,c,a,"DISAGREE");L(d,e,a,"REPLY");L(d,f,c,"DISAGREE");L(d,g,e,"REPLY");L(d,h,f,"DISAGREE");
+ d=D("Best first programming language");
+ const p1=P(d,"Sam K.","Python first, always","Readable syntax, huge ecosystem, and students see results fast.",360,40),
+ p2=P(d,"Dana W.","Java teaches fundamentals","Static types and explicit structure make concepts like classes and interfaces stick.",110,200),
+ p3=P(d,"Chris M.","Agree on Python","Our intro class switched to Python and pass rates went up.",400,200),
+ p4=P(d,"Lee H.","What about JavaScript?","Everyone uses a browser. Instant visual feedback is motivating.",680,200),
+ p5=P(d,"Sam K.","Types can come later","Learn to think in steps first, then learn type systems in the second course.",140,360);
+ L(d,p2,p1,"DISAGREE");L(d,p3,p1,"AGREE");L(d,p4,p1,"REPLY");L(d,p5,p2,"DISAGREE");
+ return S}
+let S;try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
+if(!S||!S.discs||!S.discs.length)S=seed();
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+let cur=S.discs[0].id,sel=null,selL=null,zoom=1,search="",linkSrc=null,undo=[],drag=null;
+const posts=()=>S.posts.filter(p=>p.d===cur),links=()=>S.links.filter(l=>l.d===cur);
+const P=id=>S.posts.find(p=>p.id===id),match=(p,q)=>(p.title+" "+p.author+" "+p.body).toLowerCase().includes(q.toLowerCase());
+const status=s=>$("#st").textContent=s;
+function push(label){undo.push({label,snap:JSON.stringify({posts:S.posts,links:S.links})});if(undo.length>100)undo.shift();save()}
+function doUndo(){const u=undo.pop();if(!u)return;const s=JSON.parse(u.snap);S.posts=s.posts;S.links=s.links;if(sel&&!P(sel))sel=null;if(selL&&!S.links.find(l=>l.id===selL))selL=null;save();render();status("Undid: "+u.label.replace("Undo ","")+".")}
+function edge(p,t){const cx=p.x+W/2,cy=p.y+H/2,dx=t[0]-cx,dy=t[1]-cy;if(!dx&&!dy)return[cx,cy];
+ const s=Math.min(dx?W/2/Math.abs(dx):1e9,dy?H/2/Math.abs(dy):1e9);return[cx+dx*s,cy+dy*s]}
+const ctr=p=>[p.x+W/2,p.y+H/2];
+function seg(l){const a=P(l.from),b=P(l.to);if(!a||!b)return null;return[edge(a,ctr(b)),edge(b,ctr(a))]}
+function render(){
+ const ps=posts(),ls=links();let mx=600,my=400;
+ ps.forEach(p=>{mx=Math.max(mx,p.x+W+80);my=Math.max(my,p.y+H+80)});
+ const sr=search.trim(),col=t=>`var(--${{REPLY:"reply",AGREE:"agree",DISAGREE:"dis"}[t]})`;
+ let o=`<svg id="sv" width="${mx*zoom}" height="${my*zoom}" viewBox="0 0 ${mx} ${my}"><defs><pattern id="gr" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="var(--grid)"/></pattern></defs><rect id="bgr" width="${mx}" height="${my}" fill="url(#gr)"/>`;
+ for(const l of ls){const s=seg(l);if(!s)continue;const [a,b]=s,dim=sr&&!(match(P(l.from),sr)&&match(P(l.to),sr)),isSel=selL===l.id;
+  const ang=Math.atan2(b[1]-a[1],b[0]-a[0]),h=[[b[0],b[1]],[b[0]-12*Math.cos(ang-.4),b[1]-12*Math.sin(ang-.4)],[b[0]-12*Math.cos(ang+.4),b[1]-12*Math.sin(ang+.4)]].map(q=>q.join(",")).join(" ");
+  o+=`<g data-l="${l.id}" opacity="${dim?.25:1}" style="cursor:pointer">`+(isSel?`<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="var(--sel)" stroke-opacity=".35" stroke-width="9" stroke-linecap="round"/>`:"")+
+  `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="transparent" stroke-width="14"/><line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="${col(l.type)}" stroke-width="${l.type==="AGREE"?3:2}" ${l.type==="DISAGREE"?'stroke-dasharray="9 6"':""}/><polygon points="${h}" fill="${col(l.type)}"/></g>`}
+ if(linkSrc&&linkSrc.m){const c=ctr(P(linkSrc.id));o+=`<line x1="${c[0]}" y1="${c[1]}" x2="${linkSrc.m[0]}" y2="${linkSrc.m[1]}" stroke="var(--sel)" stroke-width="2" stroke-dasharray="4 6"/>`}
+ for(const p of ps){const m=sr&&match(p,sr),isSel=sel===p.id;
+  o+=`<g data-p="${p.id}" opacity="${sr&&!m?.3:1}" style="cursor:${linkSrc?"crosshair":"grab"}"><rect x="${p.x+3}" y="${p.y+3}" width="${W}" height="${H}" rx="14" fill="#000" opacity=".1"/><rect x="${p.x}" y="${p.y}" width="${W}" height="${H}" rx="14" fill="${m?"var(--match)":"var(--card)"}" stroke="${isSel?"var(--sel)":"var(--bd)"}" stroke-width="${isSel?3:1.2}"/>`+
+  (linkSrc&&linkSrc.id===p.id?`<rect x="${p.x-4}" y="${p.y-4}" width="${W+8}" height="${H+8}" rx="18" fill="none" stroke="var(--sel)" stroke-width="2" stroke-dasharray="5 4"/>`:"")+
+  `<text x="${p.x+10}" y="${p.y+22}" font-size="13" font-weight="700" fill="var(--tx)">${esc(cut(p.title,26))}</text><text x="${p.x+10}" y="${p.y+40}" font-size="11.5" fill="var(--sub)">${esc(cut(p.author,32))}</text><text x="${p.x+10}" y="${p.y+56}" font-size="11.5" fill="var(--tx)">${esc(cut(p.body.replace(/\n/g," "),32))}</text><title>${esc(p.title)} — ${esc(p.author)}. Double-click to edit, right-click for options.</title></g>`}
+ if(!ps.length)o+=`<text x="60" y="80" font-size="15" fill="var(--sub)">This discussion is empty. Double-click anywhere to add the first post.</text>`;
+ $("#cv").innerHTML=o+"</svg>";
+ $("#disc").innerHTML=S.discs.map(d=>`<option value="${d.id}"${d.id===cur?" selected":""}>${esc(d.title)}</option>`).join("");
+ details();acts();$("#stats").textContent=`${ps.length} posts · ${ls.length} connections · Zoom ${Math.round(zoom*100)}%`;
+ document.title="DigEdit — "+S.discs.find(d=>d.id===cur).title}
+function details(){
+ const p=sel&&P(sel),l=selL&&S.links.find(x=>x.id===selL),cn=$("#conn"),bt=$("#dbtn");cn.innerHTML="";bt.innerHTML="";
+ const item=(o,t)=>{const li=document.createElement("li");li.textContent=t;li.onclick=()=>pick(o);cn.append(li)};
+ const btn=(t,f)=>{const b=document.createElement("button");b.textContent=t;b.onclick=f;bt.append(b)};
+ if(p){$("#dt").textContent=p.title;$("#meta").textContent=p.author+" · "+p.createdAt;$("#body").textContent=p.body||"(no message text)";
+  links().forEach(x=>{if(x.from===p.id){const o=P(x.to);item(o.id,"→ "+LBL[x.type]+": "+o.title)}else if(x.to===p.id){const o=P(x.from);item(o.id,"← "+o.title+" ("+LBL[x.type].toLowerCase()+" this)")}});
+  btn("Reply",()=>reply());btn("Edit",()=>edit());btn("Delete",del)}
+ else if(l){const f=P(l.from),t=P(l.to);$("#dt").textContent="Connection";$("#meta").textContent=LBL[l.type];
+  $("#body").textContent=`“${f.title}” by ${f.author}\n\n${LBL[l.type].toLowerCase()}\n\n“${t.title}” by ${t.author}`;
+  item(f.id,"Responding post: "+f.title);item(t.id,"Original post: "+t.title);btn("Delete",del)}
+ else{$("#dt").textContent="Nothing selected";$("#meta").textContent="";$("#body").textContent="Click a post to read it here.\n\n• Drag posts to arrange the discussion.\n• Double-click empty space to add a post.\n• Right-click a post for more options.\n• Use Search to highlight posts by keyword or author."}}
+function acts(){const ps=!!(sel&&P(sel));$("#bRep").disabled=$("#bEdit").disabled=!ps;$("#bLink").disabled=!ps||!!linkSrc;$("#bDel").disabled=!(ps||selL);
+ $("#bUndo").disabled=!undo.length;$("#bUndo").textContent=undo.length?undo[undo.length-1].label:"Undo"}
+function pick(id){sel=id;selL=null;render();const p=P(id),cv=$("#cv");if(p){cv.scrollTo({left:Math.max(0,(p.x-80)*zoom),top:Math.max(0,(p.y-80)*zoom),behavior:"smooth"})}}
+const pd=$("#pd");let pcb=null;
+function dlg(head,ex,parent,cb){$("#ph").textContent=head;$("#pc").innerHTML=parent?`Responding to: <b>${esc(parent.title)}</b>`:"";$("#lt").hidden=!parent;
+ $("#pa").value=ex?ex.author:(localStorage.getItem("digedit.author")||"");$("#pti").value=ex?ex.title:"";$("#pb").value=ex?ex.body:"";$("#pe").textContent="";
+ $("#pok").textContent=ex?"Save changes":"Add post";pcb=cb;pd.showModal();($("#pa").value?$("#pti"):$("#pa")).focus()}
+$("#pcn").onclick=()=>pd.close();
+$("#pf").onsubmit=e=>{const a=$("#pa").value.trim(),t=$("#pti").value.trim();
+ if(!a){e.preventDefault();$("#pe").textContent="Enter an author name.";$("#pa").focus();return}
+ if(!t){e.preventDefault();$("#pe").textContent="Enter a title.";$("#pti").focus();return}
+ try{localStorage.setItem("digedit.author",a)}catch(x){}
+ pcb({author:a,title:t,body:$("#pb").value.trim(),type:$("#pt").value})};
+function mk(v,x,y){return{id:S.n++,d:cur,author:v.author,title:v.title,body:v.body,createdAt:now(),x:Math.max(0,Math.round(x)),y:Math.max(0,Math.round(y))}}
+function newPost(x,y){if(x==null){const c=$("#cv");x=(c.scrollLeft+c.clientWidth/2)/zoom-W/2;y=(c.scrollTop+c.clientHeight/2)/zoom-H/2}
+ dlg("New post",null,null,v=>{push("Undo New Post");const p=mk(v,x,y);S.posts.push(p);sel=p.id;selL=null;save();render();status(`Added “${p.title}”.`)})}
+function reply(){const par=sel&&P(sel);if(!par)return;
+ dlg("Respond to post",null,par,v=>{push("Undo Reply");let y=par.y+H+70,x=par.x,ok=false;
+  outer:for(let r=0;r<4;r++)for(const dx of [0,220,-220,440,-440,660]){const cx=par.x+dx;if(cx<0)continue;
+   if(!posts().some(p=>cx-15<p.x+W&&cx+W+15>p.x&&y+r*110-15<p.y+H&&y+r*110+H+15>p.y)){x=cx;y+=r*110;ok=true;break outer}}
+  if(!ok)x=par.x+30;const p=mk(v,x,y);S.posts.push(p);S.links.push({id:S.n++,d:cur,from:p.id,to:par.id,type:v.type});sel=p.id;selL=null;save();render();status(`Added response “${p.title}”.`)})}
+function edit(id){const p=P(id||sel);if(!p)return;dlg("Edit post",p,null,v=>{push("Undo Edit");Object.assign(p,{author:v.author,title:v.title,body:v.body});save();render();status(`Saved changes to “${p.title}”.`)})}
+function del(){if(linkSrc){cancelLink();return}
+ if(sel&&P(sel)){const p=P(sel),n=links().filter(l=>l.from===p.id||l.to===p.id).length;push("Undo Delete Post");S.posts=S.posts.filter(x=>x.id!==p.id);S.links=S.links.filter(l=>l.from!==p.id&&l.to!==p.id);sel=null;save();render();status(`Deleted “${p.title}”${n?` and ${n} connection(s)`:""}. Press Ctrl+Z to undo.`)}
+ else if(selL){push("Undo Delete Link");S.links=S.links.filter(l=>l.id!==selL);selL=null;save();render();status("Deleted connection. Press Ctrl+Z to undo.")}}
+function startLink(){if(!sel)return;linkSrc={id:sel,m:null};status(`Click the post that “${P(sel).title}” responds to. (Esc to cancel)`);render()}
+function cancelLink(){linkSrc=null;render()}
+function finishLink(f,t){const ex=S.links.some(l=>(l.from===f&&l.to===t)||(l.from===t&&l.to===f));
+ if(ex){status("Those two posts are already connected.");return}
+ $("#lh").textContent=`How does “${P(f).title}” relate to “${P(t).title}”?`;const ld=$("#ld");ld.showModal();
+ ld.onclick=e=>{const b=e.target.closest("button");if(!b)return;ld.close();const ty=b.dataset.t;if(!ty){status("Link cancelled.");return}
+  push("Undo Link");S.links.push({id:S.n++,d:cur,from:f,to:t,type:ty});save();render();status(`Connected: “${P(f).title}” ${LBL[ty].toLowerCase()} “${P(t).title}”.`)}}
+const cv=$("#cv"),world=e=>{const r=$("#sv").getBoundingClientRect();return[(e.clientX-r.left)/zoom,(e.clientY-r.top)/zoom]};
+cv.addEventListener("pointerdown",e=>{menu(0);if(e.button!==0)return;const g=e.target.closest("[data-p]"),lg=e.target.closest("[data-l]");
+ if(linkSrc){const f=linkSrc.id;linkSrc=null;if(g&&+g.dataset.p!==f){render();finishLink(f,+g.dataset.p)}else render();return}
+ if(g){const id=+g.dataset.p,p=P(id),w=world(e);sel=id;selL=null;S.posts.push(S.posts.splice(S.posts.indexOf(p),1)[0]);
+  drag={id,ox:w[0]-p.x,oy:w[1]-p.y,sx:p.x,sy:p.y,snap:JSON.stringify({posts:S.posts,links:S.links}),moved:false};render()}
+ else if(lg){selL=+lg.dataset.l;sel=null;render()}
+ else{sel=null;selL=null;render()}});
+window.addEventListener("pointermove",e=>{if(linkSrc&&document.querySelector("#sv")){linkSrc.m=world(e);render();return}
+ if(!drag)return;const p=P(drag.id),w=world(e);p.x=Math.max(0,Math.round(w[0]-drag.ox));p.y=Math.max(0,Math.round(w[1]-drag.oy));drag.moved=true;render()});
+window.addEventListener("pointerup",()=>{if(drag&&drag.moved){const p=P(drag.id);undo.push({label:"Undo Move",snap:drag.snap});save();status(`Moved “${p.title}”.`);acts()}drag=null});
+cv.addEventListener("dblclick",e=>{const g=e.target.closest("[data-p]");if(g)edit(+g.dataset.p);else if(!e.target.closest("[data-l]")){const w=world(e);newPost(w[0]-W/2,w[1]-H/2)}});
+function menu(on,e,items){const m=$("#menu");if(!on){m.style.display="none";return}
+ m.innerHTML="";items.forEach(([t,f])=>{const b=document.createElement("button");b.textContent=t;b.onclick=()=>{menu(0);f()};m.append(b)});
+ m.style.display="block";m.style.left=Math.min(e.clientX,innerWidth-190)+"px";m.style.top=Math.min(e.clientY,innerHeight-m.offsetHeight-8)+"px"}
+cv.addEventListener("contextmenu",e=>{e.preventDefault();linkSrc=null;const g=e.target.closest("[data-p]"),lg=e.target.closest("[data-l]");
+ if(g){sel=+g.dataset.p;selL=null;render();menu(1,e,[["Edit",()=>edit()],["Reply",reply],["Link…",startLink],["Delete",del]])}
+ else if(lg){selL=+lg.dataset.l;sel=null;render();const l=S.links.find(x=>x.id===selL);menu(1,e,[["Go to responding post",()=>pick(l.from)],["Go to original post",()=>pick(l.to)],["Delete",del]])}
+ else{const w=world(e);menu(1,e,[["New post here",()=>newPost(w[0],w[1])]])}});
+cv.addEventListener("wheel",e=>{if(e.ctrlKey||e.metaKey){e.preventDefault();setZoom(zoom*(e.deltaY<0?1.1:1/1.1))}},{passive:false});
+function setZoom(z){zoom=Math.max(.5,Math.min(2.5,z));render()}
+function openDisc(id){cur=id;sel=selL=null;linkSrc=null;undo=[];render();cv.scrollTo(0,0);status(`Opened “${S.discs.find(d=>d.id===id).title}”.`)}
+$("#disc").onchange=e=>openDisc(+e.target.value);
+$("#bND").onclick=()=>{const n=prompt("Name for the new discussion:");if(!n||!n.trim())return;const d={id:S.n++,title:n.trim()};S.discs.push(d);save();openDisc(d.id);status(`Created “${d.title}”. Double-click the canvas to add the first post.`)};
+$("#bRD").onclick=()=>{const d=S.discs.find(x=>x.id===cur),n=prompt("New name:",d.title);if(!n||!n.trim())return;d.title=n.trim();save();render()};
+$("#bDD").onclick=()=>{const d=S.discs.find(x=>x.id===cur);if(!confirm(`Delete “${d.title}” and its ${posts().length} post(s)? This cannot be undone.`))return;
+ S.posts=S.posts.filter(p=>p.d!==cur);S.links=S.links.filter(l=>l.d!==cur);S.discs=S.discs.filter(x=>x.id!==cur);
+ if(!S.discs.length)S.discs.push({id:S.n++,title:"Untitled discussion"});save();openDisc(S.discs[0].id)};
+$("#bNew").onclick=()=>newPost();$("#bRep").onclick=reply;$("#bLink").onclick=startLink;$("#bEdit").onclick=()=>edit();$("#bDel").onclick=del;$("#bUndo").onclick=doUndo;
+$("#bZi").onclick=()=>setZoom(zoom*1.15);$("#bZo").onclick=()=>setZoom(zoom/1.15);
+$("#q").oninput=e=>{search=e.target.value;render();const n=search.trim()?posts().filter(p=>match(p,search.trim())).length:0;
+ status(!search.trim()?"Search cleared.":n?`${n} post(s) match “${search.trim()}”. Press Enter to jump between them.`:`No posts match “${search.trim()}”.`)};
+$("#q").onkeydown=e=>{if(e.key==="Enter"){const q=search.trim(),m=posts().filter(p=>match(p,q)).sort((a,b)=>a.id-b.id);if(!q||!m.length)return;
+ let i=0;if(sel){const k=m.findIndex(p=>p.id===sel);if(k>=0)i=(k+1)%m.length}pick(m[i].id);status(`Match ${i+1} of ${m.length}.`)}else if(e.key==="Escape"){e.target.value="";search="";render()}};
+$("#bExp").onclick=()=>{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(S,null,1)],{type:"application/json"}));a.download="digedit-backup.json";a.click()};
+$("#bImp").onclick=()=>$("#file").click();
+$("#file").onchange=e=>{const f=e.target.files[0];if(!f)return;f.text().then(t=>{try{const j=JSON.parse(t);if(!j.discs||!j.posts||!j.links)throw 0;
+ if(!confirm("Replace everything in this browser with the imported file?"))return;S=j;save();openDisc(S.discs[0].id)}catch(x){status("That file is not a DigEdit export.")}});e.target.value=""};
+addEventListener("keydown",e=>{const m=e.ctrlKey||e.metaKey,typing=/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
+ if(e.key==="Escape"){if(linkSrc)cancelLink();else if(!typing){sel=selL=null;render()}menu(0)}
+ if(typing||document.querySelector("dialog[open]"))return;
+ if(m&&e.key==="z"){e.preventDefault();doUndo()}else if(m&&e.key==="n"){e.preventDefault();newPost()}else if(m&&e.key==="r"){e.preventDefault();reply()}
+ else if(m&&e.key==="l"){e.preventDefault();startLink()}else if(m&&e.key==="e"){e.preventDefault();edit()}else if(m&&e.key==="f"){e.preventDefault();$("#q").focus()}
+ else if(e.key==="Delete"||e.key==="Backspace"){del()}});
+addEventListener("click",e=>{if(!e.target.closest("#menu"))menu(0)});
+render();status("Welcome to DigEdit. Drag posts to arrange them, double-click to edit, right-click for options.");
+</script></body></html>
